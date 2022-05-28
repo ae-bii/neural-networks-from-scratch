@@ -123,6 +123,32 @@ class Optimizer_SGD:
     def post_update_params(self):
         self.iterations += 1
 
+class Optimizer_AdaGrad:
+    def __init__(self, learning_rate=1., decay=0., epsilon=1e-7):
+        self.learning_rate = learning_rate
+        self.current_learning_rate = learning_rate
+        self.decay = decay
+        self.iterations = 0
+        self.epslion = epsilon
+        
+    def pre_update_params(self):
+        if self.decay:
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+            
+    def update_params(self, layer):
+        if not hasattr(layer, 'weight_momentums'):
+            layer.weight_cache = np.zeros_like(layer.weights)
+            layer.bias_cache = np.zeros_like(layer.biases)
+    
+        layer.weight_cache += layer.dweights**2
+        layer.bias_cache += layer.dbiases**2
+            
+        layer.weights += -self.current_learning_rate * layer.dweights / (np.sqrt(layer.weight_cache) + self.epslion)
+        layer.weights += -self.current_learning_rate * layer.dbiases / (np.sqrt(layer.bias_cache) + self.epslion)
+        
+    def post_update_params(self):
+        self.iterations += 1
+
 
 # Create dataset
 X, y = spiral_data(samples=100, classes=3)
@@ -141,7 +167,8 @@ dense2 = Layer_Dense(64, 3)
 loss_activation = Activation_Softmax_Loss_CategoricalCrossEntropy()
 
 # Create optimizer
-optimizer = Optimizer_SGD(decay=1e-3, momentum=0.92)
+# optimizer = Optimizer_SGD(decay=1e-3, momentum=0.92)
+optimizer = Optimizer_AdaGrad(decay=1e-4)
 
 # trains for n-1 epochs
 for epoch in range(10001):
