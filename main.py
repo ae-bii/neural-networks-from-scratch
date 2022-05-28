@@ -136,7 +136,7 @@ class Optimizer_AdaGrad:
             self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
             
     def update_params(self, layer):
-        if not hasattr(layer, 'weight_momentums'):
+        if not hasattr(layer, 'weight_cache'):
             layer.weight_cache = np.zeros_like(layer.weights)
             layer.bias_cache = np.zeros_like(layer.biases)
     
@@ -144,7 +144,34 @@ class Optimizer_AdaGrad:
         layer.bias_cache += layer.dbiases**2
             
         layer.weights += -self.current_learning_rate * layer.dweights / (np.sqrt(layer.weight_cache) + self.epslion)
-        layer.weights += -self.current_learning_rate * layer.dbiases / (np.sqrt(layer.bias_cache) + self.epslion)
+        layer.biases += -self.current_learning_rate * layer.dbiases / (np.sqrt(layer.bias_cache) + self.epslion)
+        
+    def post_update_params(self):
+        self.iterations += 1
+        
+class Optimizer_RMSProp:
+    def __init__(self, learning_rate=1., decay=0., epsilon=1e-7, rho=0.9):
+        self.learning_rate = learning_rate
+        self.current_learning_rate = learning_rate
+        self.decay = decay
+        self.iterations = 0
+        self.epslion = epsilon
+        self.rho = rho
+        
+    def pre_update_params(self):
+        if self.decay:
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+            
+    def update_params(self, layer):
+        if not hasattr(layer, 'weight_cache'):
+            layer.weight_cache = np.zeros_like(layer.weights)
+            layer.bias_cache = np.zeros_like(layer.biases)
+    
+        layer.weight_cache += self.rho * layer.weight_cache + (1 - self.rho) * layer.dweights**2
+        layer.bias_cache += self.rho * layer.bias_cache + (1 - self.rho) * layer.dbiases**2
+            
+        layer.weights += -self.current_learning_rate * layer.dweights / (np.sqrt(layer.weight_cache) + self.epslion)
+        layer.biases += -self.current_learning_rate * layer.dbiases / (np.sqrt(layer.bias_cache) + self.epslion)
         
     def post_update_params(self):
         self.iterations += 1
@@ -168,7 +195,8 @@ loss_activation = Activation_Softmax_Loss_CategoricalCrossEntropy()
 
 # Create optimizer
 # optimizer = Optimizer_SGD(decay=1e-3, momentum=0.92)
-optimizer = Optimizer_AdaGrad(decay=1e-4)
+# optimizer = Optimizer_AdaGrad(decay=1e-4)
+optimizer = Optimizer_RMSProp(learning_rate=0.02, decay=1e-5, rho=0.999)
 
 # trains for n-1 epochs
 for epoch in range(10001):
